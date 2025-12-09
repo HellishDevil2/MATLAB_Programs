@@ -1,0 +1,53 @@
+clc;
+clear;
+close all;
+
+
+message_frequency = 1e3;
+sampling_factor = 10;
+sampling_frequency = sampling_factor*message_frequency;
+number_of_points = 10e4;
+variance = 1;
+noise = wgn(1,number_of_points,variance,'linear');
+amplitude_of_message_signal = 2;
+time_axis = 0:1/sampling_frequency:(number_of_points-1)/sampling_frequency;
+
+signal = amplitude_of_message_signal*sin(2*pi*message_frequency*time_axis);
+
+signal_with_noise = signal + noise;
+
+filter_length = 8;
+
+transfer_function = zeros(1,filter_length); %Starting with a random function
+
+delay_length = round(sampling_factor/4);
+u_ = 1e-4;
+epislon = 1e-5;
+start_index = filter_length+1+delay_length;
+count = 0;
+while start_index <= number_of_points
+
+    input_to_filter = flip(signal_with_noise(start_index-filter_length-delay_length:start_index-delay_length-1));
+    predicted_output = dot(input_to_filter,transfer_function);
+    error_e = signal_with_noise(start_index) - predicted_output;
+    % disp("Predicted Output");
+    % disp(predicted_output);
+    % disp("Actual Output");
+    % disp(signal_with_noise(start_index));
+    new_transfer_function = transfer_function + error_e*u_*input_to_filter;
+    relative_error = norm(new_transfer_function-transfer_function)^2/norm(transfer_function)^2;
+    transfer_function = new_transfer_function;
+    start_index  = start_index + 1; 
+end
+
+[amplitude,~] = freqz(new_transfer_function,1,512,"whole");
+
+amplitude = fftshift(amplitude);
+freq = -sampling_frequency/2:sampling_frequency/length(amplitude):sampling_frequency/2-sampling_frequency/length(amplitude);
+
+plot(freq,abs(amplitude).^2);
+title(["Freq"])
+
+
+
+

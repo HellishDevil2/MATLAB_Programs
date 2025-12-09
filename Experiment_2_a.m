@@ -1,0 +1,126 @@
+clc;
+clear;
+close all;
+
+number_of_samples = 64;
+low_pass_filter = zeros(1,number_of_samples);
+cutoff_frequency = 0.5*pi;
+
+k = (number_of_samples-1)/2;
+
+for n = 1:number_of_samples
+    if n == k
+        low_pass_filter(n) = cutoff_frequency/pi;
+    else
+        low_pass_filter(n) = (sin(cutoff_frequency*(n-k)))/(pi*(n-k));
+    end
+end
+
+rectangular_window = ones(1,number_of_samples);
+triangular_window = zeros(1,number_of_samples);
+hanning_window = zeros(1,number_of_samples);
+hamming_window = zeros(1,number_of_samples);
+blackman_window = zeros(1,number_of_samples);
+
+for n = 1:number_of_samples
+    triangular_window(n) = 1 - 2*(n-(number_of_samples-1)/2)/(number_of_samples-1);
+    hanning_window(n) = 0.5 - 0.5*cos(2*pi*n/(number_of_samples-1));
+    hamming_window(n) = 0.54 - 0.46*cos(2*pi*n/(number_of_samples-1));
+    blackman_window(n) = 0.42 - 0.5*cos(2*pi*n/(number_of_samples-1)) + 0.08*cos(4*pi*n/(number_of_samples-1));
+end
+
+kaiser_window = kaiser(number_of_samples,3.4)';
+
+window_list = {rectangular_window,triangular_window,hanning_window,hamming_window,blackman_window,kaiser_window};
+window_titles = ["Rectangular Window","Triangular Window","Hanning Window","Hamming Window","Blackman Window","Kaiser Window"];
+
+
+
+for i = 1:length(window_list)
+    modified_filter = low_pass_filter.*window_list{i};
+    [frequency_response,frequency_axis] = freqz(modified_filter,1,number_of_samples);
+    figure(i);
+    subplot(2,1,1);
+    plot(frequency_axis,20*log10(abs(frequency_response)));
+    title(strcat("Amplitude Response of ",window_titles(i)));
+    xlabel("Normalised Frequency");
+    ylabel("Amplitude in decibels");
+    grid on;
+    subplot(2,1,2);
+    plot(frequency_axis,angle(frequency_response));
+    title(strcat("Phase Response of ",window_titles(i)));
+    xlabel("Normalised Frequency");
+    ylabel("Phase in Radians");
+end
+
+
+
+sampling_frequency = 24e3;
+f1 = 2e3;
+f2 = 10e3;
+
+time_axis = linspace(0,(number_of_samples-1)/sampling_frequency,number_of_samples);
+input_signal = cos(2*pi*f1*time_axis) + 2*cos(2*pi*f2*time_axis);
+noise = randn(1,number_of_samples)*0.2;
+fft_frequency_axis = linspace(-sampling_frequency/2,sampling_frequency/2,number_of_samples);
+
+for i = 1:length(window_list)
+    modified_filter = low_pass_filter.*window_list{i};
+    input_signal_fft = fft(input_signal);
+    filter_fft = fft(modified_filter);
+
+    output_fft = input_signal_fft.*filter_fft;
+    figure(i+6);
+    grid on;
+    plot(fft_frequency_axis,abs(fftshift(output_fft)));
+    xlabel("Frequency Axis");
+    ylabel("Amplitude");
+    title(strcat("FFT Plot of filter using ",window_titles(i)," without noise"));
+end
+
+for i = 1:length(window_list)
+    modified_filter = low_pass_filter.*window_list{i};
+    input_signal_fft = fft(input_signal+noise);
+    filter_fft = fft(modified_filter);
+
+    output_fft = input_signal_fft.*filter_fft;
+    figure(i+12);
+    grid on;
+    plot(fft_frequency_axis,abs(fftshift(output_fft)));
+    xlabel("Frequency Axis");
+    ylabel("Amplitude");
+    title(strcat("FFT Plot of filter using ",window_titles(i)," with noise"));
+end
+
+%Plotting SNR For each of the Windows
+SNR_Array = zeros(1,length(window_list));
+for i = 1:length(window_list)
+    modified_filter = low_pass_filter.*window_list{i};
+    input_signal_fft = fft(input_signal);
+    input_signal_with_noise = fft(input_signal+noise);
+    output_signal = ifft(input_signal_fft.*modified_filter);
+    output_signal_with_noise = ifft(input_signal_with_noise.*modified_filter);
+    noisy_output = output_signal_with_noise-output_signal;
+    SNR_Array(i) = snr(output_signal,noisy_output);
+end
+
+figure(19);
+barh(window_titles,SNR_Array);
+xlabel("Window Name");
+ylabel("SNR");
+title("SNR of Various Windows");
+
+
+
+
+
+
+
+
+
+
+    
+
+
+
+

@@ -1,0 +1,11 @@
+
+%plot(InputPower_dBm_,Vdc_V_*1000);
+%plot(Vdc_V_,I_A_);
+plot(InputPower_dBm_,Vpp_V_*1000);
+
+yscale log;
+
+
+%plot(InputPower_W_,Vdc_V_);
+
+%%

@@ -1,0 +1,142 @@
+clc;
+clear;
+close all;
+
+
+sampling_frequency = 300e6;
+message_frequency = 1e3;
+carrier_frequency = 100e6;
+amplitude_of_message_signal = 1;
+fm_mod_amplitude = 1;
+number_of_points = 2e6;
+
+k_f = 5e5;
+
+peak_frequency_deviation = amplitude_of_message_signal*k_f/(2*pi);
+bandwidth_of_fm = 2*(peak_frequency_deviation+message_frequency);
+
+time_axis = 0:1/sampling_frequency:(number_of_points-1)/sampling_frequency;
+
+message_signal = amplitude_of_message_signal*sin(2*pi*message_frequency*time_axis);
+
+fm_modulated_wave = fm_mod_amplitude*fmmod(message_signal,carrier_frequency,sampling_frequency,peak_frequency_deviation);
+
+
+
+noise_power = -180;
+
+noise = wgn(1,length(message_signal),noise_power,'dBm');
+
+fm_modulated_wave_with_noise = fm_modulated_wave + noise;
+figure(1);
+subplot(2,1,1);
+plot(time_axis,fm_modulated_wave);
+%xlim([0.08,0.09]);
+subplot(2,1,2);
+plot(time_axis,fm_modulated_wave_with_noise);
+%xlim([0.08,0.0801]);
+
+fm_modulated_wave_with_noise_after_bpf = bandpass(fm_modulated_wave_with_noise,[carrier_frequency-bandwidth_of_fm/2,carrier_frequency+bandwidth_of_fm/2],sampling_frequency,"ImpulseResponse","iir");
+fm_modulated_wave_without_noise_after_bpf = bandpass(fm_modulated_wave,[carrier_frequency-bandwidth_of_fm/2,carrier_frequency+bandwidth_of_fm/2],sampling_frequency,"ImpulseResponse","iir");
+
+
+differentiated_signal_with_noise = [0,diff(fm_modulated_wave_with_noise_after_bpf)]*sampling_frequency;
+differentiated_signal = [0,diff(fm_modulated_wave_without_noise_after_bpf)]*sampling_frequency;
+
+figure(2);
+subplot(2,1,1);
+plot(time_axis,differentiated_signal);
+subplot(2,1,2);
+plot(time_axis,differentiated_signal_with_noise);
+
+
+[upper_envelope_with_noise,lower_envelope_with_noise] = envelope(differentiated_signal_with_noise);
+[upper_envelope,lower_envelope] = envelope(differentiated_signal);
+frequency_axis = linspace(-sampling_frequency/2,sampling_frequency/2,length(time_axis));
+
+figure(3);
+subplot(2,1,1);
+plot(time_axis,lower_envelope);
+
+subplot(2,1,2);
+plot(time_axis,lower_envelope_with_noise);
+
+figure(4);
+plot(frequency_axis,abs(fftshift(fft(lower_envelope_with_noise))));
+xlim([-sampling_frequency/100000,sampling_frequency/100000])
+
+
+
+
+
+final_output_signal_with_lowpass_noise = lowpass(lower_envelope,1*message_frequency,sampling_frequency,"Steepness",0.95,"ImpulseResponse","iir","StopbandAttenuation",500);
+
+final_output_signal_with_lowpass_noise = final_output_signal_with_lowpass_noise-mean(final_output_signal_with_lowpass_noise);
+
+%final_output_signal_with_losspass_and_noise = final_output_signal_with_losspass_and_noise / max(final_output_signal_with_losspass_and_noise);
+final_output_signal_with_lowpass = lowpass(lower_envelope_with_noise,1*message_frequency,sampling_frequency,"Steepness",0.95,"ImpulseResponse","iir","StopbandAttenuation",500);
+
+final_output_signal_with_lowpass = final_output_signal_with_lowpass-mean(final_output_signal_with_lowpass);
+%final_output_signal_with_lowpass = final_output_signal_with_lowpass / max(final_output_signal_with_lowpass);
+
+
+figure(5);
+subplot(2,1,1);
+plot(time_axis,final_output_signal_with_lowpass);
+
+
+
+subplot(2,1,2);
+plot(time_axis,final_output_signal_with_lowpass_noise);
+
+
+figure(6);
+fft_spectrum_with_noise = fftshift(fft(final_output_signal_with_lowpass_noise));
+fft_spectrum = fftshift(fft(final_output_signal_with_lowpass));
+
+subplot(2,1,1);
+plot(frequency_axis,abs(fft_spectrum));
+xlim([-5*message_frequency,5*message_frequency]);
+subplot(2,1,2);
+plot(frequency_axis,abs(fft_spectrum_with_noise));
+xlim([-5*message_frequency,5*message_frequency]);
+
+
+%Assuming Perfect Envelope Detection,
+%Output Signal After LPF = kf*m(t) + (nq'(t)/A) This is the noise term;
+%Approximate Noise at Output = Signal_with_noise - Signal_without_noise 
+
+noise_at_output = final_output_signal_with_lowpass_noise - final_output_signal_with_lowpass;
+
+
+SNR_with_Modulation = sum(final_output_signal_with_lowpass(:,number_of_points/2:number_of_points*3/4).^2)/sum(noise_at_output(:,number_of_points/2:number_of_points*3/4).^2);
+
+
+
+
+no_modulation_output_noise = lowpass(message_signal*fm_mod_amplitude/amplitude_of_message_signal+noise,1.1*message_frequency,sampling_frequency,"ImpulseResponse","iir","StopbandAttenuation",100);
+no_modulation_output = lowpass(message_signal*fm_mod_amplitude/amplitude_of_message_signal,1.1*message_frequency,sampling_frequency,"ImpulseResponse","iir","StopbandAttenuation",100);
+
+figure(7);
+subplot(2,1,1);
+plot(time_axis,no_modulation_output_noise);
+subplot(2,1,2);
+plot(time_axis,no_modulation_output);
+
+
+
+
+
+SNR_without_Modulation = sum(no_modulation_output.^2)/sum((no_modulation_output_noise-no_modulation_output).^2);
+disp(SNR_with_Modulation);
+disp(SNR_without_Modulation);
+disp(SNR_with_Modulation/SNR_without_Modulation);
+
+
+
+
+
+
+
+
+

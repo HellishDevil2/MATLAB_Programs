@@ -1,0 +1,32 @@
+clc;
+clear;
+close all;
+N = 32;
+wp1 = 0.3;
+wp2 = 0.5;
+wp3 = 0.65;
+wp4 = 0.75;
+ws1 = 0.25;
+ws2 = 0.55;
+ws3 = 0.62;
+ws4 = 0.8;
+w_c = 0.5;
+w_p = 0.6;
+figure(1);
+least_squares_filter = firls(N,[0,ws1,wp1,wp2,ws2,ws3,wp3,wp4,ws4,1],[0.1,0.1,0.6,0.6,0.017,0.017,1,1,0.056,0.056]);
+freqz(least_squares_filter,1);
+title("Using Least Square Filter");
+figure(2);
+pm_filter = firpm(N,[0,ws1,wp1,wp2,ws2,ws3,wp3,wp4,ws4,1],[0.1,0.1,0.6,0.6,0.017,0.017,1,1,0.056,0.056]);
+freqz(pm_filter,1);
+title("Using PM Algorithm");
+figure(3);
+least_square_lowpass_filter = firls(N,[0,w_c,w_p,1],[1,1,0.005,0.005]);
+freqz(least_square_lowpass_filter,1);
+title("Using Least Square Filter on Low Pass Filter");
+figure(4);
+pm_low_pass_filter = firpm(N,[0,w_c,w_p,1],[1,1,0.005,0.005]);
+freqz(pm_low_pass_filter,1);
+title("Using PM Algorithm on Low Pass Filter");
+
+
